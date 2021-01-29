@@ -1620,7 +1620,7 @@ Commander::run()
 				}
 			}
 
-			_offboard_available.set_hysteresis_time_from(true, _param_com_of_loss_t.get());
+			_offboard_available.set_hysteresis_time_from(true, _param_com_of_loss_t.get() * 1e6f);
 
 			param_init_forced = false;
 		}
@@ -3450,56 +3450,39 @@ Commander::update_control_mode()
 		control_mode.flag_control_termination_enabled = true;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_OFFBOARD: {
+	case vehicle_status_s::NAVIGATION_STATE_OFFBOARD:
+		control_mode.flag_control_offboard_enabled = true;
 
-			const offboard_control_mode_s &offboard_control_mode = _offboard_control_mode_sub.get();
+		if (_offboard_control_mode_sub.get().position) {
+			control_mode.flag_control_position_enabled = true;
+			control_mode.flag_control_velocity_enabled = true;
+			control_mode.flag_control_altitude_enabled = true;
+			control_mode.flag_control_climb_rate_enabled = true;
+			control_mode.flag_control_acceleration_enabled = true;
+			control_mode.flag_control_rates_enabled = true;
+			control_mode.flag_control_attitude_enabled = true;
 
-			control_mode.flag_control_offboard_enabled = true;
+		} else if (_offboard_control_mode_sub.get().velocity) {
+			control_mode.flag_control_velocity_enabled = true;
+			control_mode.flag_control_altitude_enabled = true;
+			control_mode.flag_control_climb_rate_enabled = true;
+			control_mode.flag_control_acceleration_enabled = true;
+			control_mode.flag_control_rates_enabled = true;
+			control_mode.flag_control_attitude_enabled = true;
 
-			/*
-			 * The control flags depend on what is ignored according to the offboard control mode topic
-			 * Inner loop flags (e.g. attitude) also depend on outer loop ignore flags (e.g. position)
-			 */
-			control_mode.flag_control_rates_enabled =
-				!offboard_control_mode.ignore_bodyrate_x ||
-				!offboard_control_mode.ignore_bodyrate_y ||
-				!offboard_control_mode.ignore_bodyrate_z ||
-				!offboard_control_mode.ignore_attitude ||
-				!offboard_control_mode.ignore_position ||
-				!offboard_control_mode.ignore_velocity ||
-				!offboard_control_mode.ignore_acceleration_force;
+		} else if (_offboard_control_mode_sub.get().acceleration) {
+			control_mode.flag_control_acceleration_enabled = true;
+			control_mode.flag_control_rates_enabled = true;
+			control_mode.flag_control_attitude_enabled = true;
 
-			control_mode.flag_control_attitude_enabled = !offboard_control_mode.ignore_attitude ||
-					!offboard_control_mode.ignore_position ||
-					!offboard_control_mode.ignore_velocity ||
-					!offboard_control_mode.ignore_acceleration_force;
+		} else if (_offboard_control_mode_sub.get().attitude) {
+			control_mode.flag_control_rates_enabled = true;
+			control_mode.flag_control_attitude_enabled = true;
 
-			// TO-DO: Add support for other modes than yawrate control
-			control_mode.flag_control_yawrate_override_enabled =
-				offboard_control_mode.ignore_bodyrate_x &&
-				offboard_control_mode.ignore_bodyrate_y &&
-				!offboard_control_mode.ignore_bodyrate_z &&
-				!offboard_control_mode.ignore_attitude;
-
-			control_mode.flag_control_rattitude_enabled = false;
-
-			control_mode.flag_control_acceleration_enabled = !offboard_control_mode.ignore_acceleration_force &&
-					!_status.in_transition_mode;
-
-			control_mode.flag_control_velocity_enabled = (!offboard_control_mode.ignore_velocity ||
-					!offboard_control_mode.ignore_position) && !_status.in_transition_mode &&
-					!control_mode.flag_control_acceleration_enabled;
-
-			control_mode.flag_control_climb_rate_enabled = (!offboard_control_mode.ignore_velocity ||
-					!offboard_control_mode.ignore_position);
-
-			control_mode.flag_control_position_enabled = !offboard_control_mode.ignore_position && !_status.in_transition_mode &&
-					!control_mode.flag_control_acceleration_enabled;
-
-			control_mode.flag_control_altitude_enabled = (!offboard_control_mode.ignore_velocity ||
-					!offboard_control_mode.ignore_position) && !control_mode.flag_control_acceleration_enabled;
-
+		} else if (_offboard_control_mode_sub.get().body_rate) {
+			control_mode.flag_control_rates_enabled = true;
 		}
+
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_ORBIT:
@@ -4088,30 +4071,30 @@ void Commander::UpdateEstimateValidity()
 void
 Commander::offboard_control_update()
 {
-	const offboard_control_mode_s &offboard_control_mode = _offboard_control_mode_sub.get();
+	bool offboard_available = false;
 
 	if (_offboard_control_mode_sub.updated()) {
-		const offboard_control_mode_s old = offboard_control_mode;
+		const offboard_control_mode_s old = _offboard_control_mode_sub.get();
 
 		if (_offboard_control_mode_sub.update()) {
-			if (old.ignore_thrust != offboard_control_mode.ignore_thrust ||
-			    old.ignore_attitude != offboard_control_mode.ignore_attitude ||
-			    old.ignore_bodyrate_x != offboard_control_mode.ignore_bodyrate_x ||
-			    old.ignore_bodyrate_y != offboard_control_mode.ignore_bodyrate_y ||
-			    old.ignore_bodyrate_z != offboard_control_mode.ignore_bodyrate_z ||
-			    old.ignore_position != offboard_control_mode.ignore_position ||
-			    old.ignore_velocity != offboard_control_mode.ignore_velocity ||
-			    old.ignore_acceleration_force != offboard_control_mode.ignore_acceleration_force ||
-			    old.ignore_alt_hold != offboard_control_mode.ignore_alt_hold) {
+			const offboard_control_mode_s &ocm = _offboard_control_mode_sub.get();
+
+			if (old.position != ocm.position ||
+			    old.velocity != ocm.velocity ||
+			    old.acceleration != ocm.acceleration ||
+			    old.attitude != ocm.attitude ||
+			    old.body_rate != ocm.body_rate) {
 
 				_status_changed = true;
+			}
+
+			if (ocm.position || ocm.velocity || ocm.acceleration || ocm.attitude || ocm.body_rate) {
+				offboard_available = true;
 			}
 		}
 	}
 
-	_offboard_available.set_state_and_update(
-		hrt_elapsed_time(&offboard_control_mode.timestamp) < _param_com_of_loss_t.get() * 1e6f,
-		hrt_absolute_time());
+	_offboard_available.set_state_and_update(offboard_available, hrt_absolute_time());
 
 	const bool offboard_lost = !_offboard_available.get_state();
 
