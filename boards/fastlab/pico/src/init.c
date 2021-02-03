@@ -71,7 +71,6 @@
 #include <px4_arch/io_timer.h>
 #include <px4_platform_common/init.h>
 #include <px4_platform/gpio.h>
-#include <px4_platform/board_determine_hw_info.h>
 #include <px4_platform/board_dma_alloc.h>
 
 /****************************************************************************
@@ -216,15 +215,6 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 
 	px4_platform_init();
 
-
-	if (OK == board_determine_hw_info()) {
-		syslog(LOG_INFO, "[boot] Rev 0x%1x : Ver 0x%1x %s\n", board_get_hw_revision(), board_get_hw_version(),
-		       board_get_hw_type_name());
-
-	} else {
-		syslog(LOG_ERR, "[boot] Failed to read HW revision and version\n");
-	}
-
 	/* configure SPI interfaces (after we determined the HW version) */
 
 	stm32_spiinitialize();
@@ -280,7 +270,7 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 
 #endif /* CONFIG_MMCSD */
 
-	/* Configure the HW based on the manifest */
+	/* Configure the HW*/
 
 	px4_platform_configure();
 
