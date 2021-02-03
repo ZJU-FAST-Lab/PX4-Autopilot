@@ -34,7 +34,7 @@
 /**
  * @file board_config.h
  *
- * holybro durandal-v1 internal definitions
+ * FASTLAB pico internal definitions
  */
 
 #pragma once
@@ -75,7 +75,7 @@
 #  define BOARD_HAS_NBAT_V              2 // Only one Vbat to ADC
 #  define BOARD_HAS_NBAT_I              2 // No Ibat ADC
 
-/* Holybro Durandal V1 GPIOs ************************************************************************/
+/* FAST LAB pico GPIOs ************************************************************************/
 
 /* LEDs are driven with push open drain to support Anode to 5V or 3.3V */
 
@@ -415,7 +415,7 @@ int stm32_sdio_initialize(void);
  * Name: stm32_spiinitialize
  *
  * Description:
- *   Called to configure SPI chip select GPIO pins for the Holybro Durandal V1
+ *   Called to configure SPI chip select GPIO pins for the FAST LAB pico
  *   board.
  *
  ****************************************************************************************************/

@@ -1,7 +1,7 @@
 /************************************************************************************
- * nuttx-configs/holybro/durandal-v1/include/board.h
+ * nuttx-configs/fastlab/fastlab-pico/include/board.h
  *
- *   Copyright (C) 2016-2019 Gregory Nutt. All rights reserved.
+  *   Copyright (C) 2016-2019 Gregory Nutt. All rights reserved.
  *   Authors: David Sidrane <david.sidrane@nscdg.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,8 +32,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ************************************************************************************/
-#ifndef __NUTTX_CONFIG_HOLYBRO_DURANDAL_V1_INCLUDE_BOARD_H
-#define __NUTTX_CONFIG_HOLYBRO_DURANDAL_V1_INCLUDE_BOARD_H
+#ifndef __NUTTX_CONFIG_FASTLAB_PICO_INCLUDE_BOARD_H
+#define __NUTTX_CONFIG_FASTLAB_PICO_INCLUDE_BOARD_H
 
 /************************************************************************************
  * Included Files
@@ -55,7 +55,7 @@
  ************************************************************************************/
 
 /* Clocking *************************************************************************/
-/* The holybro durandal v1  board provides the following clock sources:
+/* The FAST LAB pico  board provides the following clock sources:
  *
  *   X1: 16 MHz crystal for HSE
  *
@@ -65,7 +65,7 @@
  *   HSE: 16 MHz crystal for HSE
  */
 
-#define STM32_BOARD_XTAL        25000000ul
+#define STM32_BOARD_XTAL        16000000ul
 
 #define STM32_HSI_FREQUENCY     16000000ul
 #define STM32_LSI_FREQUENCY     32000
@@ -111,13 +111,13 @@
 				 RCC_PLLCFGR_DIVP1EN | \
 				 RCC_PLLCFGR_DIVQ1EN | \
 				 RCC_PLLCFGR_DIVR1EN)
-#define STM32_PLLCFG_PLL1M       RCC_PLLCKSELR_DIVM1(5)
-#define STM32_PLLCFG_PLL1N       RCC_PLL1DIVR_N1(192)
+#define STM32_PLLCFG_PLL1M       RCC_PLLCKSELR_DIVM1(1)
+#define STM32_PLLCFG_PLL1N       RCC_PLL1DIVR_N1(60)
 #define STM32_PLLCFG_PLL1P       RCC_PLL1DIVR_P1(2)
 #define STM32_PLLCFG_PLL1Q       RCC_PLL1DIVR_Q1(4)
 #define STM32_PLLCFG_PLL1R       RCC_PLL1DIVR_R1(8)
 
-#define STM32_VCO1_FREQUENCY     ((STM32_HSE_FREQUENCY / 5) * 192)
+#define STM32_VCO1_FREQUENCY     ((STM32_HSE_FREQUENCY / 1) * 60)
 #define STM32_PLL1P_FREQUENCY    (STM32_VCO1_FREQUENCY / 2)
 #define STM32_PLL1Q_FREQUENCY    (STM32_VCO1_FREQUENCY / 4)
 #define STM32_PLL1R_FREQUENCY    (STM32_VCO1_FREQUENCY / 8)
@@ -129,13 +129,13 @@
 				  RCC_PLLCFGR_DIVP2EN | \
 				  RCC_PLLCFGR_DIVQ2EN | \
 				  RCC_PLLCFGR_DIVR2EN)
-#define STM32_PLLCFG_PLL2M       RCC_PLLCKSELR_DIVM2(25)
-#define STM32_PLLCFG_PLL2N       RCC_PLL2DIVR_N2(192)
+#define STM32_PLLCFG_PLL2M       RCC_PLLCKSELR_DIVM2(4)
+#define STM32_PLLCFG_PLL2N       RCC_PLL2DIVR_N2(48)
 #define STM32_PLLCFG_PLL2P       RCC_PLL2DIVR_P2(2)
 #define STM32_PLLCFG_PLL2Q       RCC_PLL2DIVR_Q2(2)
 #define STM32_PLLCFG_PLL2R       RCC_PLL2DIVR_R2(2)
 
-#define STM32_VCO2_FREQUENCY     ((STM32_HSE_FREQUENCY / 25) * 192)
+#define STM32_VCO2_FREQUENCY     ((STM32_HSE_FREQUENCY / 4) * 48)
 #define STM32_PLL2P_FREQUENCY    (STM32_VCO2_FREQUENCY / 2)
 #define STM32_PLL2Q_FREQUENCY    (STM32_VCO2_FREQUENCY / 2)
 #define STM32_PLL2R_FREQUENCY    (STM32_VCO2_FREQUENCY / 2)
@@ -145,13 +145,13 @@
 #define STM32_PLLCFG_PLL3CFG    (RCC_PLLCFGR_PLL3VCOSEL_WIDE | \
 				 RCC_PLLCFGR_PLL3RGE_4_8_MHZ | \
 				 RCC_PLLCFGR_DIVQ3EN)
-#define STM32_PLLCFG_PLL3M      RCC_PLLCKSELR_DIVM3(25)
-#define STM32_PLLCFG_PLL3N      RCC_PLL3DIVR_N3(192)
+#define STM32_PLLCFG_PLL3M      RCC_PLLCKSELR_DIVM3(4)
+#define STM32_PLLCFG_PLL3N      RCC_PLL3DIVR_N3(48)
 #define STM32_PLLCFG_PLL3P      RCC_PLL3DIVR_P3(2)
 #define STM32_PLLCFG_PLL3Q      RCC_PLL3DIVR_Q3(4)
 #define STM32_PLLCFG_PLL3R      RCC_PLL3DIVR_R3(2)
 
-#define STM32_VCO3_FREQUENCY    ((STM32_HSE_FREQUENCY / 25) * 192)
+#define STM32_VCO3_FREQUENCY    ((STM32_HSE_FREQUENCY / 4) * 48)
 #define STM32_PLL3P_FREQUENCY   (STM32_VCO3_FREQUENCY / 2)
 #define STM32_PLL3Q_FREQUENCY   (STM32_VCO3_FREQUENCY / 4)
 #define STM32_PLL3R_FREQUENCY   (STM32_VCO3_FREQUENCY / 2)
@@ -296,7 +296,7 @@
 #define STM32_SDMMC_CLKCR_EDGE      STM32_SDMMC_CLKCR_NEGEDGE
 
 /* LED definitions ******************************************************************/
-/* The holybro durandal v1 board has three, LED_GREEN a Green LED, LED_BLUE
+/* The FAST LAB pico board has three, LED_GREEN a Green LED, LED_BLUE
  * a Blue LED and LED_RED a Red LED, that can be controlled by software.
  *
  * If CONFIG_ARCH_LEDS is not defined, then the user can control the LEDs in any way.
