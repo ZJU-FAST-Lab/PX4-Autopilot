@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Holybro Durandal V1 specific board sensors init
+# FAST LAB pico specific board sensors init
 #------------------------------------------------------------------------------
 board_adc start
 
