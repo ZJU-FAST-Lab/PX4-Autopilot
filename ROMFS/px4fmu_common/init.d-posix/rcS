@@ -21,6 +21,7 @@ fi
 
 # initialize script variables
 set AUX_MODE                    none
+set AUX_BANK2			none
 set IO_PRESENT                  no
 set MAV_TYPE                    none
 set MIXER                       none
@@ -46,14 +47,12 @@ else
 	# shellcheck disable=SC2012
 	REQUESTED_AUTOSTART=$(ls "$SCRIPT_DIR/airframes" | sed -n 's/^\([0-9][0-9]*\)_'${PX4_SIM_MODEL}'$/\1/p')
 	if [ -z "$REQUESTED_AUTOSTART" ]; then
-		echo "ERROR  [init] Unknown model $PX4_SIM_MODEL (not found by name on $SCRIPT_DIR/airframes)"
+		echo "Error: Unknown model $PX4_SIM_MODEL (not found by name on $SCRIPT_DIR/airframes)"
 		exit 1
 	else
-		echo "INFO  [init] found model autostart file as SYS_AUTOSTART=$REQUESTED_AUTOSTART"
+		echo "Info: found model autostart file as SYS_AUTOSTART=$REQUESTED_AUTOSTART"
 	fi
 fi
-
-uorb start
 
 # Load parameters
 set PARAM_FILE eeprom/parameters_"$REQUESTED_AUTOSTART"
@@ -63,12 +62,12 @@ if [ -f $PARAM_FILE ]
 then
 	if param load
 	then
-		echo "INFO  [init] Loaded: $PARAM_FILE"
+		echo "[param] Loaded: $PARAM_FILE"
 	else
-		echo "ERROR  [init] FAILED loading $PARAM_FILE"
+		echo "[param] FAILED loading $PARAM_FILE"
 	fi
 else
-	echo "INFO  [init] parameter file not found, creating $PARAM_FILE"
+	echo "[param] parameter file not found, creating $PARAM_FILE"
 fi
 
 # exit early when the minimal shell is requested
@@ -99,7 +98,7 @@ then
 	set AUTOCNF yes
 
 	# Wipe out params except RC*, flight modes, total flight time, accel cal, gyro cal, next flight UUID
-	param reset_all SYS_AUTOSTART SYS_AUTOCONFIG RC* COM_FLTMODE* LND_FLIGHT_T_* TC_* CAL_ACC* CAL_GYRO* COM_FLIGHT_UUID
+	param reset_all SYS_AUTO* RC* COM_FLTMODE* LND_FLIGHT* TC_* CAL_ACC* CAL_GYRO* COM_FLIGHT*
 fi
 
 # multi-instance setup
@@ -111,55 +110,59 @@ udp_offboard_port_remote=$((14540+px4_instance))
 [ $px4_instance -gt 9 ] && udp_offboard_port_remote=14549 # use the same ports for more than 10 instances to avoid port overlaps
 udp_onboard_payload_port_local=$((14280+px4_instance))
 udp_onboard_payload_port_remote=$((14030+px4_instance))
+udp_onboard_gimbal_port_local=$((13030+px4_instance))
+udp_onboard_gimbal_port_remote=$((13280+px4_instance))
 udp_gcs_port_local=$((18570+px4_instance))
 
 if [ $AUTOCNF = yes ]
 then
 	param set SYS_AUTOSTART $REQUESTED_AUTOSTART
 
-	param set BAT_N_CELLS 4
-
-	param set CAL_ACC0_ID 1310988 # 1310988: DRV_IMU_DEVTYPE_SIM, BUS: 1, ADDR: 1, TYPE: SIMULATION
-	param set CAL_ACC1_ID 1310996 # 1310996: DRV_IMU_DEVTYPE_SIM, BUS: 2, ADDR: 1, TYPE: SIMULATION
-	param set CAL_ACC2_ID 1311004 # 1311004: DRV_IMU_DEVTYPE_SIM, BUS: 3, ADDR: 1, TYPE: SIMULATION
+	param set CAL_ACC0_ID  1310988 # 1310988: DRV_IMU_DEVTYPE_SIM, BUS: 1, ADDR: 1, TYPE: SIMULATION
 	param set CAL_GYRO0_ID 1310988 # 1310988: DRV_IMU_DEVTYPE_SIM, BUS: 1, ADDR: 1, TYPE: SIMULATION
+	param set CAL_ACC1_ID  1310996 # 1310996: DRV_IMU_DEVTYPE_SIM, BUS: 2, ADDR: 1, TYPE: SIMULATION
 	param set CAL_GYRO1_ID 1310996 # 1310996: DRV_IMU_DEVTYPE_SIM, BUS: 2, ADDR: 1, TYPE: SIMULATION
+	param set CAL_ACC2_ID  1311004 # 1311004: DRV_IMU_DEVTYPE_SIM, BUS: 3, ADDR: 1, TYPE: SIMULATION
 	param set CAL_GYRO2_ID 1311004 # 1311004: DRV_IMU_DEVTYPE_SIM, BUS: 3, ADDR: 1, TYPE: SIMULATION
+
 	param set CAL_MAG0_ID 197388
 	param set CAL_MAG1_ID 197644
 
-	param set CBRK_AIRSPD_CHK 0
-	param set CBRK_SUPPLY_CHK 894281
-
-	# Don't require RC calibration and configuration
-	param set COM_RC_IN_MODE 1
-
-	# Speedup SITL startup
-	param set EKF2_REQ_GPS_H 0.5
-
-	# Multi-EKF
-	param set EKF2_MULTI_IMU 3
-	param set SENS_IMU_MODE 0
-	param set EKF2_MULTI_MAG 2
-	param set SENS_MAG_MODE 0
-
-	# By default log from boot until first disarm.
-	param set SDLOG_MODE 1
-	# enable default, estimator replay and vision/avoidance logging profiles
-	param set SDLOG_PROFILE 131
-	param set SDLOG_DIRS_MAX 7
-	param set SENS_BOARD_ROT 0
 	param set SENS_BOARD_X_OFF 0.000001
 	param set SENS_DPRES_OFF 0.001
-	param set SYS_RESTART_TYPE 2
 
-	param set TRIG_INTERFACE 3
+	param set SYS_RESTART_TYPE 2
 fi
 
-param set COM_CPU_MAX -1 # disable check, no CPU load reported on posix yet
+param set-default BAT_N_CELLS 4
 
-# Simulator IMU data provided at 250 Hz
-param set IMU_INTEG_RATE 250
+param set-default CBRK_AIRSPD_CHK 0
+param set-default CBRK_SUPPLY_CHK 894281
+
+# disable check, no CPU load reported on posix yet
+param set-default COM_CPU_MAX -1
+
+# Don't require RC calibration and configuration
+param set-default COM_RC_IN_MODE 1
+
+# Speedup SITL startup
+param set-default EKF2_REQ_GPS_H 0.5
+
+# Multi-EKF
+param set-default EKF2_MULTI_IMU 3
+param set-default SENS_IMU_MODE 0
+param set-default EKF2_MULTI_MAG 2
+param set-default SENS_MAG_MODE 0
+
+param set-default IMU_GYRO_FFT_EN 1
+
+# By default log from boot until first disarm.
+param set-default SDLOG_MODE 1
+# enable default, estimator replay and vision/avoidance logging profiles
+param set-default SDLOG_PROFILE 131
+param set-default SDLOG_DIRS_MAX 7
+
+param set-default TRIG_INTERFACE 3
 
 # Adapt timeout parameters if simulation runs faster or slower than realtime.
 if [ -n "$PX4_SIM_SPEED_FACTOR" ]; then
@@ -174,6 +177,10 @@ if [ -n "$PX4_SIM_SPEED_FACTOR" ]; then
 	COM_OF_LOSS_T_LONGER=$(echo "$PX4_SIM_SPEED_FACTOR * 0.5" | bc)
 	echo "COM_OF_LOSS_T set to $COM_OF_LOSS_T_LONGER"
 	param set COM_OF_LOSS_T $COM_OF_LOSS_T_LONGER
+
+	COM_OBC_LOSS_T_LONGER=$(echo "$PX4_SIM_SPEED_FACTOR * 5.0" | bc)
+	echo "COM_OBC_LOSS_T set to $COM_OBC_LOSS_T_LONGER"
+	param set COM_OBC_LOSS_T $COM_OBC_LOSS_T_LONGER
 fi
 
 # Autostart ID
@@ -192,7 +199,7 @@ do
 	esac
 done
 if [ ! -e "$autostart_file" ]; then
-	echo "ERROR  [init] no autostart file found ($autostart_file)"
+	echo "Error: no autostart file found ($autostart_file)"
 	exit 1
 fi
 
@@ -206,11 +213,28 @@ then
 	param set SYS_AUTOCONFIG 0
 fi
 
+# Simulator IMU data provided at 250 Hz
+param set IMU_INTEG_RATE 250
+
 dataman start
 # only start the simulator if not in replay mode, as both control the lockstep time
 if ! replay tryapplyparams
 then
-	simulator start -c $simulator_tcp_port
+  # Check if PX4_SIM_HOSTNAME environment variable is empty
+  # If empty check if PX4_SIM_HOST_ADDR environment variable is empty
+  # If both are empty use localhost for simulator
+  if [ -z "${PX4_SIM_HOSTNAME}" ]; then
+    if [ -z "${PX4_SIM_HOST_ADDR}" ]; then
+      echo "PX4 SIM HOST: localhost"
+      simulator start -c $simulator_tcp_port
+    else
+      echo "PX4 SIM HOST: $PX4_SIM_HOST_ADDR"
+      simulator start -t $PX4_SIM_HOST_ADDR $simulator_tcp_port 
+    fi
+  else
+    echo "PX4 SIM HOST: $PX4_SIM_HOSTNAME"
+    simulator start -h $PX4_SIM_HOSTNAME $simulator_tcp_port 
+  fi
 fi
 load_mon start
 battery_simulator start
@@ -232,6 +256,16 @@ then
 	camera_feedback start
 fi
 
+if param compare -s IMU_GYRO_FFT_EN 1
+then
+	gyro_fft start
+fi
+
+if param compare -s IMU_GYRO_CAL_EN 1
+then
+	gyro_calibration start
+fi
+
 # Configure vehicle type specific parameters.
 # Note: rc.vehicle_setup is the entry point for rc.interface,
 #       rc.fw_apps, rc.mc_apps, rc.rover_apps, and rc.vtol_apps.
@@ -241,10 +275,10 @@ fi
 if [ -e etc/init.d-posix/rc.mavlink_override ]
 then
 	echo "Running non-default mavlink config rc.mavlink_override"
-	sh etc/init.d-posix/rc.mavlink_override
+	. ${R}etc/init.d-posix/rc.mavlink_override
 else
 	# GCS link
-	mavlink start -x -u $udp_gcs_port_local -r 4000000
+	mavlink start -x -u $udp_gcs_port_local -r 4000000 -f
 	mavlink stream -r 50 -s POSITION_TARGET_LOCAL_NED -u $udp_gcs_port_local
 	mavlink stream -r 50 -s LOCAL_POSITION_NED -u $udp_gcs_port_local
 	mavlink stream -r 50 -s GLOBAL_POSITION_INT -u $udp_gcs_port_local
@@ -256,12 +290,15 @@ else
 	mavlink stream -r 10 -s OPTICAL_FLOW_RAD -u $udp_gcs_port_local
 
 	# API/Offboard link
-	mavlink start -x -u $udp_offboard_port_local -r 4000000 -m onboard -o $udp_offboard_port_remote
+	mavlink start -x -u $udp_offboard_port_local -r 4000000 -f -m onboard -o $udp_offboard_port_remote
 
 	# Onboard link to camera
 	mavlink start -x -u $udp_onboard_payload_port_local -r 4000 -f -m onboard -o $udp_onboard_payload_port_remote
 
+	# Onboard link to gimbal
+	mavlink start -x -u $udp_onboard_gimbal_port_local -r 400000 -m gimbal -o $udp_onboard_gimbal_port_remote
 fi
+
 # execute autostart post script if any
 [ -e "$autostart_file".post ] && . "$autostart_file".post
 

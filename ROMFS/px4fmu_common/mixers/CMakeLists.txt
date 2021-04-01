@@ -76,6 +76,7 @@ px4_add_romfs_files(
 	quad_x_cw.main.mix
 	quad_x.main.mix
 	quad_x_vtol.main.mix
+	quad_x_vtol_AAERT.main.mix
 	rover_diff_and_servo.main.mix
 	rover_generic.main.mix
 	standard_vtol_hitl.main.mix
@@ -89,6 +90,7 @@ px4_add_romfs_files(
 	Viper.main.mix
 	vtol_AAERT.aux.mix
 	vtol_AAVVT.aux.mix
+	vtol_TTTTAAER.aux.mix
 	vtol_convergence.main.mix
 	vtol_delta.aux.mix
 	vtol_tailsitter_duo.main.mix

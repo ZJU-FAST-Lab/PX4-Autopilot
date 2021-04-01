@@ -30,9 +30,9 @@ then
 fi
 
 # USE_IO is set to 'no' for all boards w/o px4io driver or SYS_USE_IO disabled
-if [ $USE_IO = no ]
+if [ $USE_IO = no -a $AUX_BANK2 = none ]
 then
-	set MIXER_AUX none
+	set AUX_MODE none
 fi
 
 #
@@ -67,22 +67,6 @@ fi
 #
 if [ $OUTPUT_MODE != none ]
 then
-	if [ $OUTPUT_MODE = mkblctrl ]
-	then
-		if [ $MKBLCTRL_MODE = x ]
-		then
-			set MKBLCTRL_ARG "-mkmode x"
-		fi
-		if [ $MKBLCTRL_MODE = + ]
-		then
-			set MKBLCTRL_ARG "-mkmode +"
-		fi
-
-		if ! mkblctrl $MKBLCTRL_ARG
-		then
-			tune_control play error
-		fi
-	fi
 
 	if [ $OUTPUT_MODE = hil -o $OUTPUT_MODE = sim ]
 	then
@@ -153,26 +137,17 @@ then
 		fi
 	fi
 
-	if [ $OUTPUT_MODE = mkblctrl ]
-	then
-		set OUTPUT_DEV /dev/mkblctrl0
-	else
-		set OUTPUT_DEV /dev/pwm_output0
-	fi
+	set OUTPUT_DEV /dev/pwm_output0
 
 	if [ $OUTPUT_MODE = uavcan_esc ]
 	then
 		set OUTPUT_DEV /dev/uavcan/esc
 	fi
 
-	if [ $OUTPUT_MODE = tap_esc ]
-	then
-		set OUTPUT_DEV /dev/tap_esc
-	fi
-
 	if mixer load ${OUTPUT_DEV} ${MIXER_FILE}
 	then
 		echo "INFO  [init] Mixer: ${MIXER_FILE} on ${OUTPUT_DEV}"
+
 	else
 		echo "ERROR  [init] Failed loading mixer: ${MIXER_FILE}"
 		tune_control play -t 18 # tune 18 = PROG_PX4IO_ERR
@@ -204,6 +179,7 @@ then
 
 	if [ $MIXER_AUX_FILE != none ]
 	then
+		# Start the output module
 		if $OUTPUT_CMD mode_${AUX_MODE}
 		then
 			# Append aux mixer to main device.
@@ -225,6 +201,7 @@ then
 					echo "ERROR  [init] Failed loading mixer: ${MIXER_AUX_FILE}"
 				fi
 			else
+				echo "INFO  [init] setting PWM_AUX_OUT none"
 				set PWM_AUX_OUT none
 			fi
 		else
@@ -249,14 +226,44 @@ then
 	fi
 fi
 
+if [ $MIXER_AUX != none -a $AUX_MODE = none -a -e $OUTPUT_AUX_DEV ]
+then
+	#
+	# Load aux mixer.
+	#
+	if [ -f ${SDCARD_MIXERS_PATH}/${MIXER_AUX}.aux.mix ]
+	then
+		set MIXER_AUX_FILE ${SDCARD_MIXERS_PATH}/${MIXER_AUX}.aux.mix
+	else
+
+		if [ -f /etc/mixers/${MIXER_AUX}.aux.mix ]
+		then
+			set MIXER_AUX_FILE /etc/mixers/${MIXER_AUX}.aux.mix
+		fi
+	fi
+
+	if mixer load ${OUTPUT_AUX_DEV} ${MIXER_AUX_FILE}
+	then
+		echo "INFO  [init] Mixer: ${MIXER_AUX_FILE} on ${OUTPUT_AUX_DEV}"
+
+		# Set PWM_AUX output frequency.
+		if [ $PWM_AUX_RATE != none ]
+		then
+			pwm rate -c ${PWM_AUX_OUT} -r ${PWM_AUX_RATE} -d ${OUTPUT_AUX_DEV}
+		fi
+	else
+		echo "ERROR  [init] Failed loading mixer: ${MIXER_AUX_FILE}"
+	fi
+fi
+
 if [ $OUTPUT_MODE = pwm_out -o $OUTPUT_MODE = io ]
 then
 	if [ $PWM_OUT != none ]
 	then
 		# Set PWM output frequency.
-		if [ $PWM_RATE != none ]
+		if [ $PWM_MAIN_RATE != none ]
 		then
-			pwm rate -c ${PWM_OUT} -r ${PWM_RATE}
+			pwm rate -c ${PWM_OUT} -r ${PWM_MAIN_RATE}
 		fi
 	fi
 fi

@@ -56,13 +56,11 @@ static constexpr float DT_MAX = 1.0f;	///< max value of _dt allowed before a fil
  * which is used by the airspeed complimentary filter.
  */
 void TECS::update_vehicle_state_estimates(float equivalent_airspeed, const float speed_deriv_forward,
-		bool altitude_lock,
-		bool in_air,
-		float altitude, float vz)
+		bool altitude_lock, bool in_air, float altitude, float vz)
 {
 	// calculate the time lapsed since the last update
 	uint64_t now = hrt_absolute_time();
-	float dt = constrain((now - _state_update_timestamp) * 1.0e-6f, DT_MIN, DT_MAX);
+	float dt = fmaxf((now - _state_update_timestamp) * 1e-6f, DT_MIN);
 
 	bool reset_altitude = false;
 
@@ -90,12 +88,14 @@ void TECS::update_vehicle_state_estimates(float equivalent_airspeed, const float
 
 	// Update and average speed rate of change if airspeed is being measured
 	if (PX4_ISFINITE(equivalent_airspeed) && airspeed_sensor_enabled()) {
+		_tas_rate_raw = speed_deriv_forward;
 		// Apply some noise filtering
 		_TAS_rate_filter.update(speed_deriv_forward);
-		_speed_derivative = _TAS_rate_filter.getState();
+		_tas_rate_filtered = _TAS_rate_filter.getState();
 
 	} else {
-		_speed_derivative = 0.0f;
+		_tas_rate_raw = 0.0f;
+		_tas_rate_filtered = 0.0f;
 	}
 
 	if (!_in_air) {
@@ -143,7 +143,7 @@ void TECS::_update_speed_states(float equivalent_airspeed_setpoint, float equiva
 
 	// Update TAS state
 	_tas_rate_state = _tas_rate_state + tas_rate_state_input * dt;
-	float tas_state_input = _tas_rate_state + _speed_derivative + tas_error * _tas_estimate_freq * 1.4142f;
+	float tas_state_input = _tas_rate_state + _tas_rate_raw + tas_error * _tas_estimate_freq * 1.4142f;
 	_tas_state = _tas_state + tas_state_input * dt;
 
 	// Limit the TAS state to a minimum of 3 m/s
@@ -262,10 +262,10 @@ void TECS::_update_energy_estimates()
 
 	// Calculate specific energy rates in units of (m**2/sec**3)
 	_SPE_rate = _vert_vel_state * CONSTANTS_ONE_G; // potential energy rate of change
-	_SKE_rate = _tas_state * _speed_derivative;// kinetic energy rate of change
+	_SKE_rate = _tas_state * _tas_rate_filtered;// kinetic energy rate of change
 }
 
-void TECS::_update_throttle_setpoint(const float throttle_cruise, const matrix::Dcmf &rotMat)
+void TECS::_update_throttle_setpoint(const float throttle_cruise)
 {
 	// Calculate demanded rate of change of total energy, respecting vehicle limits.
 	// We will constrain the value below.
@@ -287,8 +287,7 @@ void TECS::_update_throttle_setpoint(const float throttle_cruise, const matrix::
 		// Adjust the demanded total energy rate to compensate for induced drag rise in turns.
 		// Assume induced drag scales linearly with normal load factor.
 		// The additional normal load factor is given by (1/cos(bank angle) - 1)
-		const float cosPhi = constrain(sqrtf((rotMat(0, 1) * rotMat(0, 1)) + (rotMat(1, 1) * rotMat(1, 1))), 0.1f, 1.0f);
-		STE_rate_setpoint = STE_rate_setpoint + _load_factor_correction * (1.0f / cosPhi - 1.0f);
+		STE_rate_setpoint = STE_rate_setpoint + _load_factor_correction * (_load_factor - 1.f);
 
 		STE_rate_setpoint = constrain(STE_rate_setpoint, _STE_rate_min, _STE_rate_max);
 
@@ -439,7 +438,8 @@ void TECS::_update_pitch_setpoint()
 	}
 
 	// Calculate a specific energy correction that doesn't include the integrator contribution
-	float SEB_rate_correction = _SEB_rate_error * _pitch_damping_gain + _pitch_integ_state + SEB_rate_setpoint;
+	float SEB_rate_correction = _SEB_rate_error * _pitch_damping_gain + _pitch_integ_state + _SEB_rate_ff *
+				    SEB_rate_setpoint;
 
 	// During climbout, bias the demanded pitch angle so that a zero speed error produces a pitch angle
 	// demand equal to the minimum pitch angle set by the mission plan. This prevents the integrator
@@ -533,13 +533,13 @@ void TECS::_update_STE_rate_lim()
 	_STE_rate_min = - _min_sink_rate * CONSTANTS_ONE_G;
 }
 
-void TECS::update_pitch_throttle(const matrix::Dcmf &rotMat, float pitch, float baro_altitude, float hgt_setpoint,
+void TECS::update_pitch_throttle(float pitch, float baro_altitude, float hgt_setpoint,
 				 float EAS_setpoint, float equivalent_airspeed, float eas_to_tas, bool climb_out_setpoint, float pitch_min_climbout,
 				 float throttle_min, float throttle_max, float throttle_cruise, float pitch_limit_min, float pitch_limit_max)
 {
 	// Calculate the time since last update (seconds)
 	uint64_t now = hrt_absolute_time();
-	_dt = constrain((now - _pitch_update_timestamp) * 1e-6f, DT_MIN, DT_MAX);
+	_dt = fmaxf((now - _pitch_update_timestamp) * 1e-6f, DT_MIN);
 
 	// Set class variables from inputs
 	_throttle_setpoint_max = throttle_max;
@@ -580,7 +580,7 @@ void TECS::update_pitch_throttle(const matrix::Dcmf &rotMat, float pitch, float 
 	_update_energy_estimates();
 
 	// Calculate the throttle demand
-	_update_throttle_setpoint(throttle_cruise, rotMat);
+	_update_throttle_setpoint(throttle_cruise);
 
 	// Calculate the pitch demand
 	_update_pitch_setpoint();

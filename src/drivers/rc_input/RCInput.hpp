@@ -41,6 +41,7 @@
 #include <drivers/drv_rc_input.h>
 #include <lib/perf/perf_counter.h>
 #include <lib/rc/crsf.h>
+#include <lib/rc/ghst.hpp>
 #include <lib/rc/dsm.h>
 #include <lib/rc/sbus.h>
 #include <lib/rc/st24.h>
@@ -58,8 +59,10 @@
 #include <uORB/topics/input_rc.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/vehicle_command.h>
+#include <uORB/topics/vehicle_status.h>
 
 #include "crsf_telemetry.h"
+#include "ghst_telemetry.hpp"
 
 #ifdef HRT_PPM_CHANNEL
 # include <systemlib/ppm_decode.h>
@@ -94,16 +97,18 @@ private:
 		RC_SCAN_DSM,
 		RC_SCAN_SUMD,
 		RC_SCAN_ST24,
-		RC_SCAN_CRSF
+		RC_SCAN_CRSF,
+		RC_SCAN_GHST
 	} _rc_scan_state{RC_SCAN_SBUS};
 
-	static constexpr char const *RC_SCAN_STRING[6] {
+	static constexpr char const *RC_SCAN_STRING[7] {
 		"PPM",
 		"SBUS",
 		"DSM",
 		"SUMD",
 		"ST24",
-		"CRSF"
+		"CRSF",
+		"GHST"
 	};
 
 	void Run() override;
@@ -121,14 +126,6 @@ private:
 
 	void rc_io_invert(bool invert);
 
-	/**
-	 * Respond to a vehicle command with an ACK message
-	 *
-	 * @param cmd		The command that was executed or denied (inbound)
-	 * @param result	The command result
-	 */
-	void			answer_command(const vehicle_command_s &cmd, uint8_t result);
-
 	hrt_abstime _rc_scan_begin{0};
 
 	bool _initialized{false};
@@ -139,13 +136,16 @@ private:
 
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
+	uORB::Subscription	_adc_report_sub{ORB_ID(adc_report)};
 	uORB::Subscription	_vehicle_cmd_sub{ORB_ID(vehicle_command)};
-	uORB::Subscription	_adc_sub{ORB_ID(adc_report)};
+	uORB::Subscription	_vehicle_status_sub{ORB_ID(vehicle_status)};
 
 	input_rc_s	_rc_in{};
 
 	float		_analog_rc_rssi_volt{-1.0f};
 	bool		_analog_rc_rssi_stable{false};
+
+	bool _armed{false};
 
 
 	uORB::PublicationMulti<input_rc_s>	_to_input_rc{ORB_ID(input_rc)};
@@ -159,6 +159,7 @@ private:
 	uint16_t _raw_rc_count{};
 
 	CRSFTelemetry *_crsf_telemetry{nullptr};
+	GHSTTelemetry *_ghst_telemetry{nullptr};
 
 	perf_counter_t	_cycle_perf;
 	perf_counter_t	_publish_interval_perf;

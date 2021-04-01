@@ -269,6 +269,18 @@ PARAM_DEFINE_FLOAT(FW_CLMBOUT_DIFF, 10.0f);
 PARAM_DEFINE_FLOAT(FW_LND_ANG, 5.0f);
 
 /**
+ * Minimum pitch during takeoff.
+ *
+ * @unit deg
+ * @min -5.0
+ * @max 30.0
+ * @decimal 1
+ * @increment 0.5
+ * @group FW L1 Control
+ */
+PARAM_DEFINE_FLOAT(FW_TKO_PITCH_MIN, 10.0f);
+
+/**
  *
  *
  * @unit m
@@ -309,6 +321,7 @@ PARAM_DEFINE_FLOAT(FW_LND_TLALT, -1.0f);
 
 /**
  * Landing heading hold horizontal distance.
+ *
  * Set to 0 to disable heading hold.
  *
  * @unit m
@@ -424,7 +437,7 @@ PARAM_DEFINE_FLOAT(FW_LND_THRTC_SC, 1.0f);
  * increase airspeed more aggressively.
  *
  * @unit m/s
- * @min 0.0
+ * @min 0.5
  * @max 40
  * @decimal 1
  * @increment 0.5
@@ -439,7 +452,7 @@ PARAM_DEFINE_FLOAT(FW_AIRSPD_MIN, 10.0f);
  * airspeed more aggressively.
  *
  * @unit m/s
- * @min 0.0
+ * @min 0.5
  * @max 40
  * @decimal 1
  * @increment 0.5
@@ -455,7 +468,7 @@ PARAM_DEFINE_FLOAT(FW_AIRSPD_MAX, 20.0f);
  * no other airspeed setpoint sources are present (e.g. through non-centered RC sticks).
  *
  * @unit m/s
- * @min 0.0
+ * @min 0.5
  * @max 40
  * @decimal 1
  * @increment 0.5
@@ -749,3 +762,16 @@ PARAM_DEFINE_FLOAT(FW_T_STE_R_TC, 0.4f);
  * @group FW TECS
  */
 PARAM_DEFINE_FLOAT(FW_T_TAS_R_TC, 0.2f);
+
+
+/**
+ * Specific total energy balance rate feedforward gain.
+ *
+ *
+ * @min 0.5
+ * @max 3
+ * @decimal 2
+ * @increment 0.01
+ * @group FW TECS
+ */
+PARAM_DEFINE_FLOAT(FW_T_SEB_R_FF, 1.0f);

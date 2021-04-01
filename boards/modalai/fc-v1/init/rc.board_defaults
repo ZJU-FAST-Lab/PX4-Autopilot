@@ -1,7 +1,6 @@
 #!/bin/sh
 #
-# ModalAI FC-v1 specific board defaults
-# Maintainer: travis@modalai.com
+# board specific defaults
 #------------------------------------------------------------------------------
 
 #
@@ -18,19 +17,11 @@
 #
 # Common settings across Flight Core configurations
 #
-if [ $AUTOCNF = yes ]
-then
-	#
-	# Disable safety switch by default (pull high to 3.3V to enable)
-	#  V106 - J13 pin 5
-	#  V110 - J1011 pin 5
-	#
-	param set CBRK_IO_SAFETY 22027
 
-	# Multi-EKF
-	param set EKF2_MULTI_IMU 3
-	param set SENS_IMU_MODE 0
-fi
+# Disable safety switch by default (pull high to 3.3V to enable)
+#  V106 - J13 pin 5
+#  V110 - J1011 pin 5
+param set-default CBRK_IO_SAFETY 22027
 
 #
 # Stand Alone configuration
@@ -50,9 +41,12 @@ then
 		if param compare MAV_1_CONFIG 0
 		then
 			echo "V106 - Defualt configuration TELEM2 on /dev/ttyS4 at 921600 in Normal Mode"
-			param set MAV_1_CONFIG 102 # TELEM2
-			param set MAV_1_MODE 2	# Onboard
-			param set SER_TEL2_BAUD 921600 # VIO data
+			# TELEM2
+			param set-default MAV_1_CONFIG 102
+			# Onboard
+			param set-default MAV_1_MODE 2
+			# VIO data
+			param set-default SER_TEL2_BAUD 921600
 		fi
 	fi
 
@@ -60,9 +54,12 @@ then
 	if [ $AUTOCNF = yes ]
 	then
 		echo "V106 - Auto Configuring TELEM2 on /dev/ttyS4 at 921600 in Normal Mode"
-		param set MAV_1_CONFIG 102 # TELEM2
-		param set MAV_1_MODE 2	# Onboard
-		param set SER_TEL2_BAUD 921600 # VIO data
+		# TELEM2
+		param set-default MAV_1_CONFIG 102
+		# Onboard
+		param set-default MAV_1_MODE 2
+		# VIO data
+		param set-default SER_TEL2_BAUD 921600
 	fi
 fi
 
@@ -83,10 +80,12 @@ then
 	then
 		if ! param compare MAV_1_CONFIG 102
 		then
-			echo "V110 - Defualt configuration TELEM2 on /dev/ttyS4 at 921600 in Normal Mode"
-			param set MAV_1_CONFIG 102 # TELEM2
-			param set MAV_1_MODE 2	# Onboard
-			param set SER_TEL2_BAUD 921600
+			echo "V110 - Default configuration TELEM2 on /dev/ttyS4 at 921600 in Normal Mode"
+			# TELEM2
+			param set-default MAV_1_CONFIG 102
+			# Onboard
+			param set-default MAV_1_MODE 2
+			param set-default SER_TEL2_BAUD 921600
 		fi
 	fi
 
@@ -94,12 +93,13 @@ then
 	if [ $AUTOCNF = yes ]
 	then
 		echo "V110 - Auto Configuring TELEM2 on /dev/ttyS4 at 921600 in Normal Mode"
-		param set MAV_1_CONFIG 102 # TELEM2
-		param set MAV_1_MODE 2	# Onboard
-		param set SER_TEL2_BAUD 921600
+		# TELEM2
+		param set-default MAV_1_CONFIG 102
+		# Onboard
+		param set-default MAV_1_MODE 2
+		param set-default SER_TEL2_BAUD 921600
 	fi
 fi
 
-set LOGGER_BUF 64
 
 safety_button start

@@ -51,6 +51,7 @@
 #include <uORB/topics/estimator_status.h>
 #include <uORB/topics/mavlink_log.h>
 #include <uORB/topics/parameter_update.h>
+#include <uORB/topics/position_setpoint.h>
 #include <uORB/Publication.hpp>
 #include <uORB/PublicationMulti.hpp>
 #include <uORB/topics/vehicle_acceleration.h>
@@ -60,7 +61,7 @@
 #include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/vtol_vehicle_status.h>
-#include <uORB/topics/wind_estimate.h>
+#include <uORB/topics/airspeed_wind.h>
 
 using namespace time_literals;
 
@@ -103,7 +104,7 @@ private:
 	};
 
 	uORB::Publication<airspeed_validated_s> _airspeed_validated_pub {ORB_ID(airspeed_validated)};			/**< airspeed validated topic*/
-	uORB::PublicationMulti<wind_estimate_s> _wind_est_pub[MAX_NUM_AIRSPEED_SENSORS + 1] {{ORB_ID(wind_estimate)}, {ORB_ID(wind_estimate)}, {ORB_ID(wind_estimate)}, {ORB_ID(wind_estimate)}}; /**< wind estimate topic (for each airspeed validator + purely sideslip fusion) */
+	uORB::PublicationMulti<airspeed_wind_s> _wind_est_pub[MAX_NUM_AIRSPEED_SENSORS + 1] {{ORB_ID(airspeed_wind)}, {ORB_ID(airspeed_wind)}, {ORB_ID(airspeed_wind)}, {ORB_ID(airspeed_wind)}}; /**< wind estimate topic (for each airspeed validator + purely sideslip fusion) */
 	orb_advert_t 	_mavlink_log_pub {nullptr}; 						/**< mavlink log topic*/
 
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
@@ -117,7 +118,9 @@ private:
 	uORB::Subscription _vehicle_local_position_sub{ORB_ID(vehicle_local_position)};
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
 	uORB::Subscription _vtol_vehicle_status_sub{ORB_ID(vtol_vehicle_status)};
+	uORB::Subscription _position_setpoint_sub{ORB_ID(position_setpoint)};
 	uORB::SubscriptionMultiArray<airspeed_s, MAX_NUM_AIRSPEED_SENSORS> _airspeed_subs{ORB_ID::airspeed};
+
 
 	estimator_status_s _estimator_status {};
 	vehicle_acceleration_s _accel {};
@@ -127,9 +130,10 @@ private:
 	vehicle_local_position_s _vehicle_local_position {};
 	vehicle_status_s _vehicle_status {};
 	vtol_vehicle_status_s _vtol_vehicle_status {};
+	position_setpoint_s _position_setpoint {};
 
 	WindEstimator	_wind_estimator_sideslip; /**< wind estimator instance only fusing sideslip */
-	wind_estimate_s _wind_estimate_sideslip {}; /**< wind estimate message for wind estimator instance only fusing sideslip */
+	airspeed_wind_s _wind_estimate_sideslip {}; /**< wind estimate message for wind estimator instance only fusing sideslip */
 
 	int32_t _number_of_airspeed_sensors{0}; /**<  number of airspeed sensors in use (detected during initialization)*/
 	int32_t _prev_number_of_airspeed_sensors{0}; /**<  number of airspeed sensors in previous loop (to detect a new added sensor)*/
@@ -306,8 +310,12 @@ AirspeedModule::Run()
 
 	if (_number_of_airspeed_sensors > 0) {
 
-		const bool fixed_wing = !_vtol_vehicle_status.vtol_in_rw_mode;
-		const bool in_air = !_vehicle_land_detected.landed;
+		// disable checks if not a fixed-wing or the vehicle is landing/landed, as then airspeed can fall below stall speed
+		// and wind estimate isn't accurate anymore. Even better would be to have a reliable "ground_contact" detection
+		// for fixed-wing landings.
+		const bool in_air_fixed_wing = !_vehicle_land_detected.landed &&
+					       _position_setpoint.type != position_setpoint_s::SETPOINT_TYPE_LAND &&
+					       _vehicle_status.system_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING;
 
 		// Prepare data for airspeed_validator
 		struct airspeed_validator_update_data input_data = {};
@@ -345,19 +353,19 @@ AirspeedModule::Run()
 					_in_takeoff_situation = false;
 				}
 
-				// reset takeoff_situation to true when not in air or not in fixed-wing mode
-				if (!in_air || !fixed_wing) {
+				// reset takeoff_situation to true when not in air and not in fixed-wing mode
+				if (!in_air_fixed_wing) {
 					_in_takeoff_situation = true;
 				}
 
-				input_data.in_fixed_wing_flight = (armed && fixed_wing && in_air && !_in_takeoff_situation);
+				input_data.in_fixed_wing_flight = (armed && in_air_fixed_wing && !_in_takeoff_situation);
 
 				// push input data into airspeed validator
 				_airspeed_validator[i].update_airspeed_validator(input_data);
 
 				_time_last_airspeed_update[i] = _time_now_usec;
 
-			} else if (_time_last_airspeed_update[i] - _time_now_usec > 1_s) {
+			} else if (_time_now_usec - _time_last_airspeed_update[i] > 1_s) {
 				// declare airspeed invalid if more then 1s since last raw airspeed update
 				_airspeed_validator[i].reset_airspeed_to_invalid(_time_now_usec);
 
@@ -458,6 +466,8 @@ void AirspeedModule::poll_topics()
 	_vehicle_status_sub.update(&_vehicle_status);
 	_vtol_vehicle_status_sub.update(&_vtol_vehicle_status);
 	_vehicle_local_position_sub.update(&_vehicle_local_position);
+	_position_setpoint_sub.update(&_position_setpoint);
+
 
 	_vehicle_local_position_valid = (_time_now_usec - _vehicle_local_position.timestamp < 1_s)
 					&& (_vehicle_local_position.timestamp > 0) && _vehicle_local_position.v_xy_valid;
@@ -489,7 +499,7 @@ void AirspeedModule::update_wind_estimator_sideslip()
 	_wind_estimate_sideslip.beta_innov = _wind_estimator_sideslip.get_beta_innov();
 	_wind_estimate_sideslip.beta_innov_var = _wind_estimator_sideslip.get_beta_innov_var();
 	_wind_estimate_sideslip.tas_scale = _wind_estimator_sideslip.get_tas_scale();
-	_wind_estimate_sideslip.source = wind_estimate_s::SOURCE_AS_BETA_ONLY;
+	_wind_estimate_sideslip.source = airspeed_wind_s::SOURCE_AS_BETA_ONLY;
 }
 
 void AirspeedModule::update_ground_minus_wind_airspeed()
@@ -602,16 +612,16 @@ void AirspeedModule::select_airspeed_and_publish()
 
 	// publish the wind estimator states from all airspeed validators
 	for (int i = 0; i < _number_of_airspeed_sensors; i++) {
-		wind_estimate_s wind_est = _airspeed_validator[i].get_wind_estimator_states(_time_now_usec);
+		airspeed_wind_s wind_est = _airspeed_validator[i].get_wind_estimator_states(_time_now_usec);
 
 		if (i == 0) {
-			wind_est.source = wind_estimate_s::SOURCE_AS_SENSOR_1;
+			wind_est.source = airspeed_wind_s::SOURCE_AS_SENSOR_1;
 
 		} else if (i == 1) {
-			wind_est.source = wind_estimate_s::SOURCE_AS_SENSOR_2;
+			wind_est.source = airspeed_wind_s::SOURCE_AS_SENSOR_2;
 
 		} else {
-			wind_est.source = wind_estimate_s::SOURCE_AS_SENSOR_3;
+			wind_est.source = airspeed_wind_s::SOURCE_AS_SENSOR_3;
 		}
 
 		_wind_est_pub[i + 1].publish(wind_est);

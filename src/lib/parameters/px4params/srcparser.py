@@ -162,11 +162,11 @@ class Parameter(object):
         """
         Return value of the given bitmask code or None if not found.
         """
-        fv =  self.bitmask.get(index)
+        fv = self.bitmask.get(index)
         if not fv:
                 # required because python 3 sorted does not accept None
                 return ""
-        return fv
+        return fv.strip()
 
 class SourceParser(object):
     """
@@ -305,6 +305,10 @@ class SourceParser(object):
                     group = "Miscellaneous"
                     if state == "comment-processed":
                         if short_desc is not None:
+                            if '\n' in short_desc:
+                                raise Exception('short description must be a single line (parameter: {:})'.format(name))
+                            if len(short_desc) > 150:
+                                raise Exception('short description too long (150 max, is {:}, parameter: {:})'.format(len(short_desc), name))
                             param.SetField("short_desc", self.re_remove_dots.sub('', short_desc))
                         if long_desc is not None:
                             long_desc = self.re_remove_carriage_return.sub(' ', long_desc)

@@ -6,6 +6,7 @@ px4_add_board(
 	LABEL fixedwing
 	TOOLCHAIN arm-none-eabi
 	ARCHITECTURE cortex-m4
+	CONSTRAINED_MEMORY
 	ROMFSROOT px4fmu_common
 	IO px4_io-v2_default
 	#TESTING
@@ -51,6 +52,8 @@ px4_add_board(
 		#events
 		fw_att_control
 		fw_pos_control_l1
+		gyro_calibration
+		#gyro_fft
 		land_detector
 		load_mon
 		logger
@@ -81,6 +84,7 @@ px4_add_board(
 		top
 		#topic_listener
 		tune_control
+		#uorb
 		#usb_connected
 		ver
 		#work_queue

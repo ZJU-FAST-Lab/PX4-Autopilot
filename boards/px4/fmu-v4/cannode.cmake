@@ -25,6 +25,7 @@ px4_add_board(
 	LABEL cannode
 	TOOLCHAIN arm-none-eabi
 	ARCHITECTURE cortex-m4
+	CONSTRAINED_MEMORY
 	ROMFSROOT cannode
 	UAVCAN_INTERFACES 1
 	SERIAL_PORTS
@@ -41,7 +42,7 @@ px4_add_board(
 		#dshot
 		gps
 		#imu # all available imu drivers
-		#imu/adis16448
+		#imu/analog_devices/adis16448
 		#imu/adis16477
 		#imu/adis16497
 		imu/invensense/icm20602
